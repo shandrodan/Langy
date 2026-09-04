@@ -1,16 +1,26 @@
 import AppKit
 
-/// Native-looking translucent settings window (⌃⌘⌥L).
-/// Liquid Glass on macOS 26+, sidebar vibrancy below that.
+/// Tahoe-style translucent settings window (⌃⌘⌥L).
+/// Rounded grouped cards with toggle switches instead of a table:
+/// when "Use system layouts" is on, the layouts card is just the
+/// description + toggle — no search, no list, no buttons.
 final class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
 
-    private var useSystemBox: NSButton!
+    private static let width: CGFloat = 520
+    private static let pad: CGFloat = 20
+    private static let inset: CGFloat = 14
+    private static let canvas: CGFloat = 1400
+    private static let listHeight: CGFloat = 232
+    private static let rowHeight: CGFloat = 32
+
     private var descLabel: NSTextField!
-    private var searchField: NSSearchField!
-    private var table: NSTableView!
-    private var countLabel: NSTextField!
-    private var launchBox: NSButton!
+    private var useSystemSwitch: NSSwitch!
+    private var searchField: NSSearchField?
+    private var listScroll: NSScrollView?
+    private var listDoc: NSView?
+    private var countLabel: NSTextField?
+    private var launchSwitch: NSSwitch!
     private var permissionLabel: NSTextField!
 
     private var allRows: [KeyboardLayout] = []
@@ -19,9 +29,6 @@ final class SettingsWindowController: NSWindowController {
         guard !filter.isEmpty else { return allRows }
         return allRows.filter { $0.name.localizedCaseInsensitiveContains(filter) }
     }
-
-    private static let width: CGFloat = 480
-    private static let pad: CGFloat = 20
 
     init() {
         let win = NSWindow(
@@ -37,7 +44,6 @@ final class SettingsWindowController: NSWindowController {
         win.isReleasedWhenClosed = false
         super.init(window: win)
         buildContent()
-        reload()
     }
 
     @available(*, unavailable)
@@ -45,7 +51,8 @@ final class SettingsWindowController: NSWindowController {
 
     func show() {
         LayoutStore.shared.refreshSystemLayouts()
-        reload()
+        filter = ""
+        buildContent()
         window?.center()
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -55,7 +62,8 @@ final class SettingsWindowController: NSWindowController {
 
     private func buildContent() {
         guard let win = window else { return }
-        let root = NSView(frame: win.contentView!.bounds)
+        let rootH = Self.canvas
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: rootH))
         root.autoresizingMask = [.width, .height]
         win.contentView = root
 
@@ -63,95 +71,134 @@ final class SettingsWindowController: NSWindowController {
         bg.frame = root.bounds
         root.addSubview(bg)
 
-        var y = root.bounds.height - 64 // below traffic lights
+        let useSystem = LayoutStore.shared.useSystemLayouts
+        var y = rootH - 56 // below traffic lights
 
         // MARK: Layouts section
-        y = addSectionHeader("Keyboard Layouts", at: y, in: root)
-        descLabel = NSTextField(wrappingLabelWithString: "")
-        descLabel.font = .systemFont(ofSize: 12)
+        y = addSectionHeader("Keyboard Layouts", topGap: 0, at: y, in: root)
+
+        let innerW = Self.width - Self.pad * 2 - Self.inset * 2
+        let descFont = NSFont.systemFont(ofSize: 12)
+        let descText = useSystem
+            ? "With text selected, ⇧⌥L retypes the selection; with a plain caret, the whole field. Press again for the next of your installed keyboards."
+            : "With text selected, ⇧⌥L retypes the selection; with a plain caret, the whole field. Press again for the next built-in or custom layout."
+        let descH = wrappedHeight(descText, width: innerW, font: descFont)
+
+        // When system layouts are on, that's it: description + toggle only.
+        var cardH: CGFloat = 14 + descH + 10 + 26 + 14
+        if !useSystem {
+            cardH += 12 + 28 + 10 + Self.listHeight + 10 + 28
+        }
+        let card = RoundedBox(radius: 18, fill: NSColor.controlBackgroundColor.withAlphaComponent(0.55))
+        y = add(card, height: cardH, topGap: 6, at: y, in: root)
+
+        var cy = cardH
+        descLabel = NSTextField(wrappingLabelWithString: descText)
+        descLabel.font = descFont
         descLabel.textColor = .secondaryLabelColor
-        y = add(descLabel, height: 32, topGap: 4, at: y, in: root)
-        useSystemBox = NSButton(checkboxWithTitle: "Use system layouts", target: self, action: #selector(toggleUseSystem(_:)))
-        useSystemBox.font = .systemFont(ofSize: 13)
-        y = add(useSystemBox, height: 20, topGap: 10, at: y, in: root)
+        cy = place(descLabel, height: descH, topGap: 14, at: cy, in: card)
 
-        searchField = NSSearchField()
-        searchField.placeholderString = "Search layouts"
-        searchField.target = self
-        searchField.action = #selector(filterChanged(_:))
-        searchField.sendsSearchStringImmediately = true
-        y = add(searchField, height: 26, topGap: 10, at: y, in: root)
+        let sysRow = NSView()
+        let sysLabel = NSTextField(labelWithString: "Use system layouts")
+        sysLabel.font = .systemFont(ofSize: 13)
+        sysLabel.frame = NSRect(x: 0, y: 4, width: innerW - 52, height: 18)
+        useSystemSwitch = NSSwitch()
+        useSystemSwitch.target = self
+        useSystemSwitch.action = #selector(toggleUseSystem(_:))
+        useSystemSwitch.frame = NSRect(x: innerW - 40, y: 2, width: 40, height: 22)
+        sysRow.addSubview(sysLabel)
+        sysRow.addSubview(useSystemSwitch)
+        cy = place(sysRow, height: 26, topGap: 10, at: cy, in: card)
 
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .bezelBorder
-        scroll.drawsBackground = false
-        table = NSTableView()
-        let enabledCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("enabled"))
-        enabledCol.title = ""
-        enabledCol.width = 32
-        let checkCell = NSButtonCell()
-        checkCell.setButtonType(.switch)
-        checkCell.title = ""
-        enabledCol.dataCell = checkCell
-        let nameCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
-        nameCol.title = "Layout"
-        nameCol.width = Self.width - Self.pad * 2 - 34
-        table.addTableColumn(enabledCol)
-        table.addTableColumn(nameCol)
-        table.delegate = self
-        table.dataSource = self
-        table.headerView = nil
-        table.backgroundColor = .clear
-        table.usesAlternatingRowBackgroundColors = true
-        table.rowHeight = 22
-        scroll.documentView = table
-        y = add(scroll, height: 236, topGap: 8, at: y, in: root)
+        if !useSystem {
+            let field = NSSearchField()
+            field.placeholderString = "Search layouts"
+            field.target = self
+            field.action = #selector(filterChanged(_:))
+            field.sendsSearchStringImmediately = true
+            searchField = field
+            cy = place(field, height: 28, topGap: 12, at: cy, in: card)
 
-        let btnRow = NSView()
-        let addBtn = NSButton(title: "Add…", target: self, action: #selector(addCustom(_:)))
-        addBtn.bezelStyle = .rounded
-        addBtn.frame = NSRect(x: 0, y: 0, width: 72, height: 26)
-        let delBtn = NSButton(title: "Remove", target: self, action: #selector(removeSelected(_:)))
-        delBtn.bezelStyle = .rounded
-        delBtn.frame = NSRect(x: 80, y: 0, width: 84, height: 26)
-        countLabel = NSTextField(labelWithString: "")
-        countLabel.font = .systemFont(ofSize: 12)
-        countLabel.textColor = .secondaryLabelColor
-        countLabel.alignment = .right
-        countLabel.frame = NSRect(x: 172, y: 3, width: Self.width - Self.pad * 2 - 172, height: 20)
-        btnRow.addSubview(addBtn)
-        btnRow.addSubview(delBtn)
-        btnRow.addSubview(countLabel)
-        y = add(btnRow, height: 26, topGap: 10, at: y, in: root)
+            let listBox = RoundedBox(radius: 12, fill: NSColor.textBackgroundColor.withAlphaComponent(0.65))
+            cy = place(listBox, height: Self.listHeight, topGap: 10, at: cy, in: card)
+            let scroll = NSScrollView(frame: NSRect(x: 1, y: 1, width: listBox.bounds.width - 2, height: Self.listHeight - 2))
+            scroll.autoresizingMask = [.width, .height]
+            scroll.hasVerticalScroller = true
+            scroll.hasHorizontalScroller = false
+            scroll.autohidesScrollers = true
+            scroll.borderType = .noBorder
+            scroll.drawsBackground = false
+            let doc = NSView(frame: NSRect(x: 0, y: 0, width: scroll.contentSize.width, height: scroll.contentSize.height))
+            scroll.documentView = doc
+            listBox.addSubview(scroll)
+            listScroll = scroll
+            listDoc = doc
 
-        y = addSeparator(at: y, in: root)
+            let footRow = NSView()
+            let addBtn = NSButton(title: "Add…", target: self, action: #selector(addCustom(_:)))
+            addBtn.bezelStyle = .rounded
+            addBtn.frame = NSRect(x: 0, y: 0, width: 72, height: 28)
+            let count = NSTextField(labelWithString: "")
+            count.font = .systemFont(ofSize: 12)
+            count.textColor = .secondaryLabelColor
+            count.alignment = .right
+            count.frame = NSRect(x: 80, y: 5, width: innerW - 80, height: 18)
+            countLabel = count
+            footRow.addSubview(addBtn)
+            footRow.addSubview(count)
+            cy = place(footRow, height: 28, topGap: 10, at: cy, in: card)
+        } else {
+            searchField = nil
+            listScroll = nil
+            listDoc = nil
+            countLabel = nil
+        }
 
         // MARK: General section
         y = addSectionHeader("General", at: y, in: root)
-        launchBox = NSButton(checkboxWithTitle: "Launch on startup", target: self, action: #selector(toggleLaunch(_:)))
-        launchBox.font = .systemFont(ofSize: 13)
-        y = add(launchBox, height: 20, topGap: 10, at: y, in: root)
 
-        permissionLabel = NSTextField(wrappingLabelWithString: "")
-        permissionLabel.font = .systemFont(ofSize: 12)
-        y = add(permissionLabel, height: 32, topGap: 10, at: y, in: root)
+        let trusted = TextSwapper.shared.isTrusted
+        let permText = trusted
+            ? "Accessibility: allowed — text swapping works."
+            : "Accessibility: not allowed — Langy can't swap text yet. Flip the switch, then Quit & Reopen."
+        let permH = wrappedHeight(permText, width: innerW, font: descFont)
+
+        let genH: CGFloat = 14 + 26 + 10 + permH + 8 + 28 + 10 + 28 + 14
+        let genCard = RoundedBox(radius: 18, fill: NSColor.controlBackgroundColor.withAlphaComponent(0.55))
+        y = add(genCard, height: genH, topGap: 6, at: y, in: root)
+
+        var gy = genH
+        let launchRow = NSView()
+        let launchLabel = NSTextField(labelWithString: "Launch on startup")
+        launchLabel.font = .systemFont(ofSize: 13)
+        launchLabel.frame = NSRect(x: 0, y: 4, width: innerW - 52, height: 18)
+        launchSwitch = NSSwitch()
+        launchSwitch.target = self
+        launchSwitch.action = #selector(toggleLaunch(_:))
+        launchSwitch.frame = NSRect(x: innerW - 40, y: 2, width: 40, height: 22)
+        launchRow.addSubview(launchLabel)
+        launchRow.addSubview(launchSwitch)
+        gy = place(launchRow, height: 26, topGap: 14, at: gy, in: genCard)
+
+        permissionLabel = NSTextField(wrappingLabelWithString: permText)
+        permissionLabel.font = descFont
+        gy = place(permissionLabel, height: permH, topGap: 10, at: gy, in: genCard)
 
         let permRow = NSView()
         let permBtn = NSButton(title: "Open Accessibility Settings…", target: self, action: #selector(openAccessibility(_:)))
         permBtn.bezelStyle = .rounded
-        permBtn.frame = NSRect(x: 0, y: 0, width: 220, height: 26)
+        permBtn.frame = NSRect(x: 0, y: 0, width: 220, height: 28)
         let relaunchBtn = NSButton(title: "Quit & Reopen", target: self, action: #selector(relaunch(_:)))
         relaunchBtn.bezelStyle = .rounded
         relaunchBtn.toolTip = "Needed after flipping the Accessibility switch"
-        relaunchBtn.frame = NSRect(x: 228, y: 0, width: 120, height: 26)
+        relaunchBtn.frame = NSRect(x: 228, y: 0, width: 120, height: 28)
         permRow.addSubview(permBtn)
         permRow.addSubview(relaunchBtn)
-        y = add(permRow, height: 26, topGap: 8, at: y, in: root)
+        gy = place(permRow, height: 28, topGap: 8, at: gy, in: genCard)
 
         let quitBtn = NSButton(title: "Quit Langy Completely", target: self, action: #selector(quitApp(_:)))
         quitBtn.bezelStyle = .rounded
-        y = add(quitBtn, height: 28, topGap: 10, at: y, in: root, fullWidth: false, width: 190)
+        gy = place(quitBtn, height: 28, topGap: 10, at: gy, in: genCard, width: 200)
 
         // MARK: Footer
         let footer = NSButton(title: "made by dan", target: self, action: #selector(openSite(_:)))
@@ -170,15 +217,21 @@ final class SettingsWindowController: NSWindowController {
         version.alignment = .center
         y = add(version, height: 15, topGap: 2, at: y, in: root)
 
-        // Shrink window to fit content exactly.
-        if let win = window {
-            let used = root.bounds.height - y
-            let targetH = used + 16
-            var frame = win.frame
-            frame.size.height = targetH
-            frame.origin.y += win.frame.height - targetH
-            win.setFrame(frame, display: true)
-        }
+        reload()
+
+        // Shrink window to fit content exactly (canvas is oversized on purpose
+        // so toggling the list back on never clips). Freeze subview frames so
+        // the resize itself doesn't move anything, then shift everything down.
+        let targetH = (rootH - y) + 16
+        for v in root.subviews { v.autoresizingMask = [] }
+        let delta = rootH - targetH
+        for v in root.subviews where v !== bg { v.frame.origin.y -= delta }
+        var frame = win.frame
+        frame.size.height = targetH
+        frame.origin.y = (win.frame.origin.y + win.frame.size.height) - targetH
+        win.setFrame(frame, display: true, animate: false)
+        bg.frame = root.bounds
+        bg.autoresizingMask = [.width, .height]
     }
 
     private func makeBackground() -> NSView {
@@ -210,16 +263,30 @@ final class SettingsWindowController: NSWindowController {
         return ny
     }
 
-    private func addSectionHeader(_ text: String, at y: CGFloat, in root: NSView) -> CGFloat {
-        let label = NSTextField(labelWithString: text)
-        label.font = .systemFont(ofSize: 13, weight: .semibold)
-        return add(label, height: 18, topGap: y == root.bounds.height - 64 ? 0 : 16, at: y, in: root)
+    /// Place a view inside a card, with card insets on both sides.
+    @discardableResult
+    private func place(_ view: NSView, height: CGFloat, topGap: CGFloat, at y: CGFloat, in card: NSView, width: CGFloat = 0) -> CGFloat {
+        let ny = y - height - topGap
+        let w = width > 0 ? width : card.bounds.width - Self.inset * 2
+        view.frame = NSRect(x: Self.inset, y: ny, width: w, height: height)
+        view.autoresizingMask = [.width, .maxYMargin]
+        card.addSubview(view)
+        return ny
     }
 
-    private func addSeparator(at y: CGFloat, in root: NSView) -> CGFloat {
-        let box = NSBox()
-        box.boxType = .separator
-        return add(box, height: 5, topGap: 14, at: y, in: root)
+    private func addSectionHeader(_ text: String, topGap: CGFloat = 14, at y: CGFloat, in root: NSView) -> CGFloat {
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        return add(label, height: 18, topGap: topGap, at: y, in: root)
+    }
+
+    private func wrappedHeight(_ text: String, width: CGFloat, font: NSFont) -> CGFloat {
+        let r = (text as NSString).boundingRect(
+            with: NSSize(width: width, height: 1000),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
+        return ceil(r.height) + 4
     }
 
     // MARK: - Data
@@ -234,16 +301,79 @@ final class SettingsWindowController: NSWindowController {
 
     private func reload() {
         allRows = LayoutStore.shared.allKnownLayouts()
-        let useSystem = LayoutStore.shared.useSystemLayouts
-        useSystemBox?.state = useSystem ? .on : .off
-        descLabel?.stringValue = useSystem
-            ? "With text selected, ⇧⌥L retypes the selection; with a plain caret, the whole field. Press again for the next of your installed keyboards."
-            : "With text selected, ⇧⌥L retypes the selection; with a plain caret, the whole field. Press again for the next built-in or custom layout."
-        launchBox?.state = StartupManager.isEnabled ? .on : .off
-        table?.reloadData()
+        useSystemSwitch.state = LayoutStore.shared.useSystemLayouts ? .on : .off
+        launchSwitch.state = StartupManager.isEnabled ? .on : .off
+        rebuildList()
+        refreshPermissionRow()
+    }
+
+    /// Rebuild the layout rows (label + switch, per-row remove for customs).
+    private func rebuildList() {
+        guard let doc = listDoc, let scroll = listScroll else { return }
+        doc.subviews.forEach { $0.removeFromSuperview() }
+        let list = rows
+        let docW = scroll.contentSize.width
+        let visibleH = scroll.contentSize.height
+        if list.isEmpty {
+            let empty = NSTextField(labelWithString: filter.isEmpty ? "No layouts." : "No layouts match “\(filter)”.")
+            empty.font = .systemFont(ofSize: 12)
+            empty.textColor = .secondaryLabelColor
+            empty.alignment = .center
+            empty.frame = NSRect(x: 0, y: max(0, visibleH - 24), width: docW, height: 18)
+            doc.addSubview(empty)
+            doc.setFrameSize(NSSize(width: docW, height: visibleH))
+        } else {
+            let docH = max(visibleH, CGFloat(list.count) * Self.rowHeight)
+            doc.setFrameSize(NSSize(width: docW, height: docH))
+            for (i, layout) in list.enumerated() {
+                let custom = isCustom(layout)
+                let swW: CGFloat = 40
+                let rmW: CGFloat = custom ? 30 : 0
+                let row = NSView(frame: NSRect(x: 0, y: docH - CGFloat(i + 1) * Self.rowHeight, width: docW, height: Self.rowHeight))
+                let label = NSTextField(labelWithString: displayName(layout))
+                label.font = .systemFont(ofSize: 13)
+                label.lineBreakMode = .byTruncatingTail
+                label.frame = NSRect(x: 12, y: 7, width: docW - 12 - 12 - swW - 8 - rmW, height: 18)
+                row.addSubview(label)
+                if custom {
+                    let rm = makeRemoveButton()
+                    rm.identifier = NSUserInterfaceItemIdentifier(layout.id)
+                    rm.target = self
+                    rm.action = #selector(removeCustomRow(_:))
+                    rm.frame = NSRect(x: docW - 12 - swW - 8 - 22, y: 5, width: 22, height: 22)
+                    row.addSubview(rm)
+                }
+                let sw = NSSwitch()
+                sw.identifier = NSUserInterfaceItemIdentifier(layout.id)
+                sw.state = LayoutStore.shared.disabledIDs.contains(layout.id) ? .off : .on
+                sw.target = self
+                sw.action = #selector(toggleLayout(_:))
+                sw.frame = NSRect(x: docW - 12 - swW, y: 5, width: swW, height: 22)
+                row.addSubview(sw)
+                doc.addSubview(row)
+            }
+            if docH > visibleH {
+                scroll.contentView.scroll(to: NSPoint(x: 0, y: docH - visibleH))
+                scroll.reflectScrolledClipView(scroll.contentView)
+            }
+        }
         let enabled = LayoutStore.shared.effectiveLayouts().count
         countLabel?.stringValue = "\(enabled) of \(allRows.count) enabled"
-        refreshPermissionRow()
+    }
+
+    private func makeRemoveButton() -> NSButton {
+        if let img = NSImage(systemSymbolName: "minus.circle", accessibilityDescription: "Remove custom layout") {
+            let b = NSButton(image: img, target: nil, action: nil)
+            b.isBordered = false
+            b.imageScaling = .scaleProportionallyDown
+            b.toolTip = "Remove custom layout"
+            b.contentTintColor = .secondaryLabelColor
+            return b
+        }
+        let b = NSButton(title: "Remove", target: nil, action: nil)
+        b.bezelStyle = .inline
+        b.controlSize = .small
+        return b
     }
 
     private func refreshPermissionRow() {
@@ -260,12 +390,21 @@ final class SettingsWindowController: NSWindowController {
 
     // MARK: - Actions
 
-    @objc private func toggleUseSystem(_ sender: NSButton) {
+    @objc private func toggleUseSystem(_ sender: NSSwitch) {
         LayoutStore.shared.useSystemLayouts = sender.state == .on
-        reload()
+        buildContent()
     }
 
-    @objc private func toggleLaunch(_ sender: NSButton) {
+    @objc private func toggleLayout(_ sender: NSSwitch) {
+        guard let id = sender.identifier?.rawValue, !id.isEmpty else { return }
+        var disabled = LayoutStore.shared.disabledIDs
+        if sender.state == .on { disabled.remove(id) } else { disabled.insert(id) }
+        LayoutStore.shared.disabledIDs = disabled
+        let enabled = LayoutStore.shared.effectiveLayouts().count
+        countLabel?.stringValue = "\(enabled) of \(allRows.count) enabled"
+    }
+
+    @objc private func toggleLaunch(_ sender: NSSwitch) {
         StartupManager.setEnabled(sender.state == .on)
         sender.state = StartupManager.isEnabled ? .on : .off
     }
@@ -295,19 +434,16 @@ final class SettingsWindowController: NSWindowController {
 
     @objc private func filterChanged(_ sender: NSSearchField) {
         filter = sender.stringValue.trimmingCharacters(in: .whitespaces)
-        table.reloadData()
+        rebuildList()
     }
 
-    @objc private func removeSelected(_ sender: NSButton) {
-        let sel = table.selectedRow
-        guard sel >= 0, sel < rows.count else { return }
-        let layout = rows[sel]
-        guard isCustom(layout) else { return } // system & built-in rows toggle via checkbox
-        LayoutStore.shared.removeCustom(id: layout.id)
+    @objc private func removeCustomRow(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue, !id.isEmpty else { return }
+        LayoutStore.shared.removeCustom(id: id)
         var disabled = LayoutStore.shared.disabledIDs
-        disabled.remove(layout.id)
+        disabled.remove(id)
         LayoutStore.shared.disabledIDs = disabled
-        reload()
+        buildContent()
     }
 
     @objc private func addCustom(_ sender: NSButton) {
@@ -350,7 +486,7 @@ final class SettingsWindowController: NSWindowController {
                 id: "custom.\(UUID().uuidString)",
                 name: name, map: map, isSystem: false
             ))
-            self?.reload()
+            self?.buildContent()
         }
     }
 
@@ -362,31 +498,31 @@ final class SettingsWindowController: NSWindowController {
     }
 }
 
-// MARK: - Table
+// MARK: - Rounded card
 
-extension SettingsWindowController: NSTableViewDataSource, NSTableViewDelegate {
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+/// Layer-backed rounded container using dynamic NSColors, so it tracks
+/// light/dark appearance changes via updateLayer.
+private final class RoundedBox: NSView {
+    private let radius: CGFloat
+    private let fill: NSColor
 
-    func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
-        guard row < rows.count else { return nil }
-        let layout = rows[row]
-        if tableColumn?.identifier.rawValue == "enabled" {
-            return LayoutStore.shared.disabledIDs.contains(layout.id) ? NSControl.StateValue.off.rawValue : NSControl.StateValue.on.rawValue
-        }
-        return displayName(layout)
+    init(radius: CGFloat, fill: NSColor) {
+        self.radius = radius
+        self.fill = fill
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.borderWidth = 1
+        updateLayer()
     }
 
-    func tableView(_ tableView: NSTableView, setObjectValue object: Any?, for tableColumn: NSTableColumn?, row: Int) {
-        guard row < rows.count, tableColumn?.identifier.rawValue == "enabled" else { return }
-        var disabled = LayoutStore.shared.disabledIDs
-        let on: Bool = {
-            if let n = object as? NSNumber { return n.intValue == 1 }
-            if let s = object as? Int { return s == 1 }
-            return true
-        }()
-        if on { disabled.remove(rows[row].id) } else { disabled.insert(rows[row].id) }
-        LayoutStore.shared.disabledIDs = disabled
-        let enabled = LayoutStore.shared.effectiveLayouts().count
-        countLabel?.stringValue = "\(enabled) of \(allRows.count) enabled"
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.cornerRadius = radius
+        layer?.backgroundColor = fill.cgColor
+        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.4).cgColor
     }
 }
