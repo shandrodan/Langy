@@ -28,10 +28,16 @@ final class TextSwapper {
     /// Shows the system prompt at most once per launch — after that we only
     /// hint, so the shortcut never nag-loops while the user is fixing settings.
     func requestAccessIfNeeded() {
-        guard !AXIsProcessTrusted(), !promptedThisLaunch else { return }
+        _ = checkAccessAndPromptIfNeeded()
+    }
+
+    private func checkAccessAndPromptIfNeeded() -> Bool {
+        guard !AXIsProcessTrusted() else { return true }
+        guard !promptedThisLaunch else { return false }
         promptedThisLaunch = true
         let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(opts)
+        return false
     }
 
     /// Opens the exact Accessibility pane (used by the Settings permission row).
@@ -44,14 +50,14 @@ final class TextSwapper {
     // MARK: - Convert
 
     func convertSelection() -> ConversionOutcome {
-        requestAccessIfNeeded()
-        guard isTrusted else {
+        guard checkAccessAndPromptIfNeeded() else {
             // The classic trap: the switch is ON but this process started
             // before it was flipped — macOS only trusts a fresh launch.
             return .permissionMissing
         }
-        transliterator.layouts = LayoutStore.shared.effectiveLayouts()
-        guard !transliterator.layouts.isEmpty else {
+        let snapshot = LayoutStore.shared.effectiveLayoutSnapshot()
+        transliterator.updateLayouts(snapshot.layouts, revision: snapshot.revision)
+        guard !snapshot.layouts.isEmpty else {
             return .failure
         }
         guard let element = focusedElement() else {
@@ -173,7 +179,6 @@ final class TextSwapper {
     /// True only if `original` is currently selected (re-selecting first,
     /// polling because async apps lag behind the request).
     private func confirmSelected(element: AXUIElement, original: String, range: CFRange?) -> Bool {
-        let attr = NSAccessibility.Attribute.selectedText.rawValue
         if let r = range { _ = axSetRange(element, r) }
         return waitForSelectedText(element, original)
     }
