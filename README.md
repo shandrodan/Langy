@@ -13,7 +13,7 @@ polled, not assumed: async apps (Electron) that apply selection a beat later
 no longer cost an extra press.
 
 - Event-driven, no polling: global hotkeys + `LSUIElement` (no Dock icon), ~zero idle CPU.
-- Ships positional maps for **50 European languages** as fallback; with system layouts ON (default) only your installed keyboards are listed and used — whatever you have enabled is read live and takes precedence.
+- Ships **50 named, best-effort layout entries**, not 50 verified languages. With system layouts ON (default), only enabled system keyboards and custom maps are used; builtins are used when system layouts are OFF. See the [engine verification report](Docs/LanguageVerification.md) for tested coverage and known failures.
 - **⌃⌘⌥L** opens Liquid Glass settings (native, translucent): use-system toggle, searchable per-layout on/off list, add extra maps, launch on startup, quit completely.
 - Menu-bar `⌘` only: white when idle; fades green the moment a fix starts and fades out the instant the text lands (it mirrors the operation). Orange = Accessibility missing, red = couldn't convert. No center-screen popups, no sounds.
 - Footer: *made by dan* → [danshandro.com](https://danshandro.com).
