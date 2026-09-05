@@ -3,6 +3,10 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var flashGeneration = 0
+    private var fadeTimer: Timer?
+    private var currentIconColor: NSColor = .white
+    /// Serial so rapid presses queue instead of overlapping swaps.
+    private let workQueue = DispatchQueue(label: "langy.convert", qos: .userInitiated)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu-bar icon — light footprint, always reachable.
@@ -24,8 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKeyManager.shared.onSettings = { [weak self] in self?.openSettings() }
         HotKeyManager.shared.register()
 
-        // Launch signal: green briefly, then back to white.
-        flash(.systemGreen, duration: 0.6)
+        // Launch signal: gentle green breath, then back to white.
+        flashGeneration += 1
+        let launchGen = flashGeneration
+        fadeIcon(to: .systemGreen, duration: 0.25) { [weak self] in
+            self?.fadeBackToWhite(gen: launchGen, after: 0.35)
+        }
 
         // Ask for Accessibility once (needed to swap the selection).
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
@@ -35,7 +43,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Menu-bar indicator
 
+    // The icon is a live signal, not a fixed blink: it fades in green the
+    // moment a swap starts, holds exactly while the operation runs, and fades
+    // out the instant the text lands. All transitions ease — nothing snaps.
+
     private func setIconColor(_ color: NSColor) {
+        currentIconColor = color
         guard let button = statusItem?.button else { return }
         let font = button.font ?? .systemFont(ofSize: 16, weight: .medium)
         button.attributedTitle = NSAttributedString(
@@ -44,24 +57,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func flash(_ color: NSColor, duration: TimeInterval = 0.6) {
-        flashGeneration += 1
-        let generation = flashGeneration
-        setIconColor(color)
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
-            guard let self, self.flashGeneration == generation else { return }
-            self.setIconColor(.white)
+    /// Eased fade to a color (smoothstep, 60fps). Cancels any fade in flight.
+    private func fadeIcon(to target: NSColor, duration: TimeInterval, completion: (() -> Void)? = nil) {
+        fadeTimer?.invalidate()
+        let start = currentIconColor
+        let steps = max(1, Int(duration * 60))
+        var i = 0
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            i += 1
+            let f = min(1.0, Double(i) / Double(steps))
+            let eased = f * f * (3 - 2 * f)
+            self.setIconColor(start.blended(withFraction: eased, of: target) ?? target)
+            if f >= 1.0 { timer.invalidate(); completion?() }
+        }
+    }
+
+    private func fadeBackToWhite(gen: Int, after hold: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + hold) { [weak self] in
+            guard let self, gen == self.flashGeneration else { return }
+            self.fadeIcon(to: .white, duration: 0.35)
         }
     }
 
     @objc private func convertNow() {
-        switch TextSwapper.shared.convertSelection() {
-        case .success:
-            flash(.systemGreen, duration: 0.6)
-        case .permissionMissing:
-            flash(.systemOrange, duration: 0.6)
-        case .failure:
-            flash(.systemRed, duration: 0.6)
+        flashGeneration += 1
+        let gen = flashGeneration
+        fadeIcon(to: .systemGreen, duration: 0.15) // fade in: swap starting
+        workQueue.async { [weak self] in
+            let outcome = TextSwapper.shared.convertSelection()
+            DispatchQueue.main.async { [weak self] in
+                guard let self, gen == self.flashGeneration else { return }
+                switch outcome {
+                case .success:
+                    // Landed — green goes away now.
+                    self.fadeIcon(to: .white, duration: 0.35)
+                case .permissionMissing:
+                    self.fadeIcon(to: .systemOrange, duration: 0.15) {
+                        self.fadeBackToWhite(gen: gen, after: 0.5)
+                    }
+                case .failure:
+                    self.fadeIcon(to: .systemRed, duration: 0.15) {
+                        self.fadeBackToWhite(gen: gen, after: 0.5)
+                    }
+                }
+            }
         }
     }
 
