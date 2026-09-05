@@ -1,39 +1,94 @@
 import AppKit
 import Carbon
 
+/// Immutable layout data handed to a conversion worker. The revision lets the
+/// transliterator keep compiled maps alive until the effective list changes.
+struct LayoutSnapshot {
+    let layouts: [KeyboardLayout]
+    let revision: UInt64
+}
+
 /// Discovers real system keyboard layouts via TIS + UCKeyTranslate,
 /// merges them with built-ins and user customs, persists prefs.
 /// Everything is lazy/on-demand — no polling, ~zero idle cost.
 final class LayoutStore {
     static let shared = LayoutStore()
 
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private let kUseSystem = "langy.useSystemLayouts"
     private let kCustom = "langy.customLayouts"
     private let kDisabled = "langy.disabledLayoutIDs"
 
+    private struct SettingsSnapshot {
+        let useSystem: Bool
+        let custom: [KeyboardLayout]
+        let disabled: Set<String>
+    }
+
+    private struct PositionalMapCacheKey: Hashable {
+        let referenceID: String?
+        let targetID: String
+        let referenceData: Data
+        let targetData: Data
+    }
+
+    private static let sortedBuiltins = BuiltinLayouts.all.sorted {
+        $0.name.localizedCompare($1.name) == .orderedAscending
+    }
+
+    // Settings are edited on the main queue while conversion reads them from
+    // its serial worker queue. Keep all cached snapshots atomic across both.
+    private let cacheLock = NSLock()
+    private var settingsCache: SettingsSnapshot?
+    private var cachedEffective: [KeyboardLayout]?
+    private var cachedEffectiveRevision: UInt64?
+    private var layoutRevision: UInt64 = 0
+
     var useSystemLayouts: Bool {
-        get { defaults.object(forKey: kUseSystem) == nil ? true : defaults.bool(forKey: kUseSystem) }
-        set { defaults.set(newValue, forKey: kUseSystem) }
+        get {
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
+            return settingsSnapshotLocked().useSystem
+        }
+        set {
+            cacheLock.lock()
+            defaults.set(newValue, forKey: kUseSystem)
+            invalidateSettingsCachesLocked()
+            cacheLock.unlock()
+        }
     }
 
     var disabledIDs: Set<String> {
-        get { Set(defaults.stringArray(forKey: kDisabled) ?? []) }
-        set { defaults.set(Array(newValue), forKey: kDisabled) }
+        get {
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
+            return settingsSnapshotLocked().disabled
+        }
+        set {
+            cacheLock.lock()
+            defaults.set(Array(newValue), forKey: kDisabled)
+            invalidateSettingsCachesLocked()
+            cacheLock.unlock()
+        }
     }
 
     var customLayouts: [KeyboardLayout] {
         get {
-            guard let data = defaults.data(forKey: kCustom),
-                  let decoded = try? JSONDecoder().decode([KeyboardLayout].self, from: data)
-            else { return [] }
-            return decoded
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
+            return settingsSnapshotLocked().custom
         }
         set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                defaults.set(data, forKey: kCustom)
-            }
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            cacheLock.lock()
+            defaults.set(data, forKey: kCustom)
+            invalidateSettingsCachesLocked()
+            cacheLock.unlock()
         }
+    }
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
     }
 
     func addCustom(_ layout: KeyboardLayout) {
@@ -52,33 +107,57 @@ final class LayoutStore {
     /// System ON: your installed keyboards + your customs — nothing else.
     /// System OFF: built-ins + customs.
     func effectiveLayouts() -> [KeyboardLayout] {
+        effectiveLayoutSnapshot().layouts
+    }
+
+    /// Returns the effective list and a revision that changes whenever its
+    /// inputs change or the live system-layout cache is refreshed.
+    func effectiveLayoutSnapshot() -> LayoutSnapshot {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+
+        let settings = settingsSnapshotLocked()
+        let now = Date()
+        let systems = settings.useSystem ? systemLayoutsLocked(now: now) : []
+        if let cachedEffective, cachedEffectiveRevision == layoutRevision {
+            return LayoutSnapshot(layouts: cachedEffective, revision: layoutRevision)
+        }
+
         var out: [KeyboardLayout] = []
         var seen = Set<String>()
-        let systems = useSystemLayouts ? systemLayouts() : []
-        for l in systems where !disabledIDs.contains(l.id) {
+        let disabled = settings.disabled
+        out.reserveCapacity(systems.count + settings.custom.count + Self.sortedBuiltins.count)
+
+        for l in systems where !disabled.contains(l.id) {
             out.append(l); seen.insert(l.id)
         }
-        for l in customLayouts where !seen.contains(l.id) && !disabledIDs.contains(l.id) {
+        for l in settings.custom where !seen.contains(l.id) && !disabled.contains(l.id) {
             out.append(l); seen.insert(l.id)
         }
-        if !useSystemLayouts {
-            for b in BuiltinLayouts.all.sorted(by: { $0.name < $1.name })
-                where !seen.contains(b.id) && !disabledIDs.contains(b.id) {
+        if !settings.useSystem {
+            for b in Self.sortedBuiltins
+                where !seen.contains(b.id) && !disabled.contains(b.id) {
                 out.append(b); seen.insert(b.id)
             }
         }
-        return out
+        cachedEffective = out
+        cachedEffectiveRevision = layoutRevision
+        return LayoutSnapshot(layouts: out, revision: layoutRevision)
     }
 
     /// Everything known (for the settings list), with enabled flags derived from disabledIDs.
     func allKnownLayouts() -> [KeyboardLayout] {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+
+        let settings = settingsSnapshotLocked()
         var out: [KeyboardLayout] = []
         var seen = Set<String>()
-        let systems = useSystemLayouts ? systemLayouts() : []
+        let systems = settings.useSystem ? systemLayoutsLocked(now: Date()) : []
         for l in systems { out.append(l); seen.insert(l.id) }
-        for l in customLayouts where !seen.contains(l.id) { out.append(l); seen.insert(l.id) }
-        if !useSystemLayouts {
-            for b in BuiltinLayouts.all.sorted(by: { $0.name < $1.name })
+        for l in settings.custom where !seen.contains(l.id) { out.append(l); seen.insert(l.id) }
+        if !settings.useSystem {
+            for b in Self.sortedBuiltins
                 where !seen.contains(b.id) {
                 out.append(b); seen.insert(b.id)
             }
@@ -90,19 +169,62 @@ final class LayoutStore {
 
     private var cachedSystem: [KeyboardLayout]?
     private var cachedAt: Date = .distantPast
+    private var positionalMapCache: [PositionalMapCacheKey: [String: String]] = [:]
 
     /// Cached for 30s — rescanning TIS on every keypress would waste cycles.
     func systemLayouts() -> [KeyboardLayout] {
-        if let c = cachedSystem, Date().timeIntervalSince(cachedAt) < 30 { return c }
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return systemLayoutsLocked(now: Date())
+    }
+
+    private func systemLayoutsLocked(now: Date) -> [KeyboardLayout] {
+        if let c = cachedSystem, now.timeIntervalSince(cachedAt) < 30 { return c }
         let found = discoverSystemLayouts()
         cachedSystem = found
+        // Preserve the previous behavior: the TTL starts after discovery,
+        // not before the potentially expensive TIS scan.
         cachedAt = Date()
+        layoutRevision &+= 1
         return found
     }
 
     func refreshSystemLayouts() {
+        cacheLock.lock()
         cachedAt = .distantPast
-        _ = systemLayouts()
+        cachedSystem = nil
+        cachedEffective = nil
+        cachedEffectiveRevision = nil
+        layoutRevision &+= 1
+        _ = systemLayoutsLocked(now: Date())
+        cacheLock.unlock()
+    }
+
+    private func settingsSnapshotLocked() -> SettingsSnapshot {
+        if let settingsCache { return settingsCache }
+
+        let useSystem = defaults.object(forKey: kUseSystem) == nil
+            ? true
+            : defaults.bool(forKey: kUseSystem)
+        let disabled = Set(defaults.stringArray(forKey: kDisabled) ?? [])
+        let custom: [KeyboardLayout]
+        if let data = defaults.data(forKey: kCustom),
+           let decoded = try? JSONDecoder().decode([KeyboardLayout].self, from: data) {
+            custom = decoded
+        } else {
+            custom = []
+        }
+
+        let snapshot = SettingsSnapshot(useSystem: useSystem, custom: custom, disabled: disabled)
+        settingsCache = snapshot
+        return snapshot
+    }
+
+    private func invalidateSettingsCachesLocked() {
+        settingsCache = nil
+        cachedEffective = nil
+        cachedEffectiveRevision = nil
+        layoutRevision &+= 1
     }
 
     private func discoverSystemLayouts() -> [KeyboardLayout] {
@@ -136,7 +258,19 @@ final class LayoutStore {
             guard sourceEnabled(of: src) else { continue }
             guard let data = layoutData(of: src) else { continue }
             let name = sourceName(of: src) ?? id
-            let map = positionalMap(usData: usData, targetData: data)
+            let key = PositionalMapCacheKey(
+                referenceID: referenceID,
+                targetID: id,
+                referenceData: usData,
+                targetData: data
+            )
+            let map: [String: String]
+            if let cached = positionalMapCache[key] {
+                map = cached
+            } else {
+                map = positionalMap(usData: usData, targetData: data)
+                positionalMapCache[key] = map
+            }
             guard map.count >= 5 else { continue } // not a real letter mapping
             out.append(KeyboardLayout(id: id, name: name, map: map, isSystem: true))
         }

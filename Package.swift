@@ -13,6 +13,10 @@ let package = Package(
                 .linkedFramework("ServiceManagement"),
                 .linkedFramework("ApplicationServices")
             ]
+        ),
+        .testTarget(
+            name: "LangyTests",
+            dependencies: ["Langy"]
         )
     ]
 )
