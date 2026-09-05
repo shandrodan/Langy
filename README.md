@@ -9,8 +9,8 @@ touched; everything happens through the Accessibility API.
 
 - Event-driven, no polling: global hotkeys + `LSUIElement` (no Dock icon), ~zero idle CPU.
 - Ships positional maps for **50 European languages** as fallback; with system layouts ON (default) only your installed keyboards are listed and used — whatever you have enabled is read live and takes precedence.
-- **⌃⌘⌥L** opens Liquid Glass settings (native, translucent): use-system toggle, searchable per-layout on/off list, add extra maps, launch on startup, quit completely.
-- Menu-bar `⌘` only: white when idle, green for 0.6s on launch and on each fix, orange = Accessibility missing, red = couldn't convert. No center-screen popups, no sounds.
+- **⌃⌘⌥L** opens native settings: use-system toggle, searchable per-layout on/off list, add/remove extra maps, menu-bar visibility, launch on startup, quit completely. Turn off system layouts to manage built-in and custom layouts.
+- Menu-bar `⌘`: white when idle, green for 0.6s on launch and on each fix, orange = Accessibility missing, red = couldn't convert. Hide it with **Show icon in menu bar**; both global shortcuts still work, and the choice is remembered across launches. No center-screen popups, no sounds.
 - Footer: *made by dan* → [danshandro.com](https://danshandro.com).
 
 ## Build (no full Xcode needed)
@@ -22,9 +22,13 @@ open Langy.app
 
 Or run in place: `swift run -c release`.
 
+Run native settings regression checks with `zsh Scripts/check-settings.sh`.
+Optionally set `LANGY_SNAPSHOT_DIR` to an existing directory to export light/dark
+settings previews. These checks do not require XCTest or full Xcode.
+
 First launch: System Settings → Privacy & Security → Accessibility → allow **Langy**,
 then **quit and reopen Langy** (macOS only trusts a fresh launch after the switch is flipped).
-The General section shows the live status and has *Quit & Reopen* for exactly this.
+Settings shows the permission status and has *Quit & Reopen* for exactly this.
 
 ## Troubleshooting permission
 
@@ -42,6 +46,11 @@ The General section shows the live status and has *Quit & Reopen* for exactly th
 
 ## Extra layouts
 
-Settings → *Add extra layout…*: give a name plus two equal-length rows
+Settings → turn off *Use system keyboard layouts* → *Add*: give a name plus two equal-length rows
 (home chars → mapped chars, position by position). Stored locally, converted
 to and from like the rest.
+
+Select a custom layout and click *Remove* to delete it. Built-in layouts can be
+disabled, but not deleted. The **?** button in Settings explains both shortcuts.
+If the menu-bar icon is hidden and the settings shortcut is unavailable, open
+Langy again from Finder or Spotlight to return to Settings.

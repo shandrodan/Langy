@@ -4,8 +4,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var flashGeneration = 0
 
+    var showsMenuBarIcon: Bool {
+        get {
+            UserDefaults.standard.object(forKey: "langy.showMenuBarIcon") as? Bool ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "langy.showMenuBarIcon")
+            statusItem?.isVisible = newValue
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Menu-bar icon — light footprint, always reachable.
+        // Menu-bar icon with persistent visibility.
         // Idle state is white; flashes green on launch/switch, orange for
         // missing permission, red for failure. Never any center-screen UI.
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -19,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Langy", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
+        statusItem?.isVisible = showsMenuBarIcon
 
         HotKeyManager.shared.onConvert = { [weak self] in self?.convertNow() }
         HotKeyManager.shared.onSettings = { [weak self] in self?.openSettings() }
@@ -67,6 +78,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         SettingsWindowController.shared.show()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Reopening the app is a recovery path when the icon is hidden and a shortcut is unavailable.
+        SettingsWindowController.shared.show()
+        return true
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
