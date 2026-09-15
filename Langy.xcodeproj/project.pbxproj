@@ -1,0 +1,321 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* AppDelegate.swift */; };
+		A10000000000000000000002 /* BuiltinLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* BuiltinLayouts.swift */; };
+		A10000000000000000000003 /* HotKeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* HotKeyManager.swift */; };
+		A10000000000000000000004 /* KeyTyper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* KeyTyper.swift */; };
+		A10000000000000000000005 /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* KeyboardLayout.swift */; };
+		A10000000000000000000006 /* KeyboardShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* KeyboardShortcut.swift */; };
+		A10000000000000000000007 /* LayoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* LayoutStore.swift */; };
+		A10000000000000000000008 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* SettingsWindowController.swift */; };
+		A10000000000000000000009 /* StartupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* StartupManager.swift */; };
+		A10000000000000000000010 /* TextSwapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* TextSwapper.swift */; };
+		A10000000000000000000011 /* Transliterator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* Transliterator.swift */; };
+		A10000000000000000000012 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* main.swift */; };
+		A20000000000000000000001 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* AppKit.framework */; };
+		A20000000000000000000002 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* Carbon.framework */; };
+		A20000000000000000000003 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* ServiceManagement.framework */; };
+		A20000000000000000000004 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* ApplicationServices.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* BuiltinLayouts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinLayouts.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* HotKeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyManager.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* KeyTyper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyTyper.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* KeyboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayout.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* KeyboardShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcut.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* LayoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		B10000000000000000000009 /* StartupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupManager.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* TextSwapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSwapper.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* Transliterator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transliterator.swift; sourceTree = "<group>"; };
+		B10000000000000000000012 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B20000000000000000000001 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		B20000000000000000000002 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		B20000000000000000000003 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
+		B20000000000000000000004 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
+		B30000000000000000000001 /* Langy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Langy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B40000000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B40000000000000000000002 /* LangyIcon.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = LangyIcon.svg; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E10000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A20000000000000000000001 /* AppKit.framework in Frameworks */,
+				A20000000000000000000002 /* Carbon.framework in Frameworks */,
+				A20000000000000000000003 /* ServiceManagement.framework in Frameworks */,
+				A20000000000000000000004 /* ApplicationServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C10000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				C10100000000000000000001 /* Sources */,
+				C10300000000000000000001 /* Resources */,
+				C10500000000000000000001 /* Frameworks */,
+				C10400000000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C10100000000000000000001 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				C10200000000000000000001 /* Langy */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		C10200000000000000000001 /* Langy */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* AppDelegate.swift */,
+				B10000000000000000000002 /* BuiltinLayouts.swift */,
+				B10000000000000000000003 /* HotKeyManager.swift */,
+				B10000000000000000000004 /* KeyTyper.swift */,
+				B10000000000000000000005 /* KeyboardLayout.swift */,
+				B10000000000000000000006 /* KeyboardShortcut.swift */,
+				B10000000000000000000007 /* LayoutStore.swift */,
+				B10000000000000000000008 /* SettingsWindowController.swift */,
+				B10000000000000000000009 /* StartupManager.swift */,
+				B10000000000000000000010 /* TextSwapper.swift */,
+				B10000000000000000000011 /* Transliterator.swift */,
+				B10000000000000000000012 /* main.swift */,
+			);
+			path = Langy;
+			sourceTree = "<group>";
+		};
+		C10300000000000000000001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B40000000000000000000001 /* Info.plist */,
+				B40000000000000000000002 /* LangyIcon.svg */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		C10400000000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B30000000000000000000001 /* Langy.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C10500000000000000000001 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000001 /* AppKit.framework */,
+				B20000000000000000000002 /* Carbon.framework */,
+				B20000000000000000000003 /* ServiceManagement.framework */,
+				B20000000000000000000004 /* ApplicationServices.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D10000000000000000000001 /* Langy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXNativeTarget "Langy" */;
+			buildPhases = (
+				E10000000000000000000001 /* Sources */,
+				E10000000000000000000002 /* Frameworks */,
+				E10000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Langy;
+			productName = Langy;
+			productReference = B30000000000000000000001 /* Langy.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D20000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					D10000000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = F10100000000000000000001 /* Build configuration list for PBXProject "Langy" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C10000000000000000000001;
+			productRefGroup = C10400000000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D10000000000000000000001 /* Langy */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E10000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* AppDelegate.swift in Sources */,
+				A10000000000000000000002 /* BuiltinLayouts.swift in Sources */,
+				A10000000000000000000003 /* HotKeyManager.swift in Sources */,
+				A10000000000000000000004 /* KeyTyper.swift in Sources */,
+				A10000000000000000000005 /* KeyboardLayout.swift in Sources */,
+				A10000000000000000000006 /* KeyboardShortcut.swift in Sources */,
+				A10000000000000000000007 /* LayoutStore.swift in Sources */,
+				A10000000000000000000008 /* SettingsWindowController.swift in Sources */,
+				A10000000000000000000009 /* StartupManager.swift in Sources */,
+				A10000000000000000000010 /* TextSwapper.swift in Sources */,
+				A10000000000000000000011 /* Transliterator.swift in Sources */,
+				A10000000000000000000012 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		G10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "arm64 x86_64";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_IDENTITY = "";
+				CURRENT_PROJECT_VERSION = 5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.4;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.danshandro.langy;
+				PRODUCT_NAME = Langy;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		G10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "arm64 x86_64";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_IDENTITY = "";
+				CURRENT_PROJECT_VERSION = 5;
+				DEBUGGING_SYMBOLS = NO;
+				DEBUG_INFORMATION_FORMAT = none;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_DEBUG_DYLIB = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.4;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.danshandro.langy;
+				PRODUCT_NAME = Langy;
+				SDKROOT = macosx;
+				STRIP_INSTALLED_PRODUCT = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		G10000000000000000000003 /* Project Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "arm64 x86_64";
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		G10000000000000000000004 /* Project Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "arm64 x86_64";
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F10000000000000000000001 /* Build configuration list for PBXNativeTarget "Langy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G10000000000000000000001 /* Debug */,
+				G10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10100000000000000000001 /* Build configuration list for PBXProject "Langy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G10000000000000000000003 /* Project Debug */,
+				G10000000000000000000004 /* Project Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D20000000000000000000001 /* Project object */;
+}

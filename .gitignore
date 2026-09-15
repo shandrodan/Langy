@@ -1,3 +1,29 @@
+# Swift Package Manager and Xcode build output
 .build/
+DerivedData/
 Langy.app/
+*.dSYM/
+
+# Xcode per-user state and local workspace files
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Release artifacts
+dist/
+
+# macOS metadata
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.Trashes
+.Spotlight-V100
